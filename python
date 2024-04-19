@@ -1,0 +1,92 @@
+import cv2
+import numpy as np
+
+def read_images(gait_dataset_path, background_images_path):
+    # Read RGB gait dataset and background images
+    RGBGaitImages = cv2.imread(gait_dataset_path)
+    BackgroundImages = cv2.imread(background_images_path)
+    return RGBGaitImages, BackgroundImages
+
+def resize_images(images, sizes):
+    # Resize all images to three different sizes
+    ResizedImages = [cv2.resize(images, (size, size)) for size in sizes]
+    return ResizedImages
+
+def convert_to_grayscale(images):
+    # Apply Rgb2gray image conversion
+    GrayScaleImages = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
+    return GrayScaleImages
+
+def subtract_background(gait_images, background_images):
+    # Apply subtraction between grayscale gait (G) and background (BG)
+    SubtractedImages = [cv2.subtract(gait, bg) for gait, bg in zip(gait_images, background_images)]
+    return SubtractedImages
+
+def histogram_equalization(images):
+    # Apply histogram equalization
+    EqualizedImages = [cv2.equalizeHist(img) for img in images]
+    return EqualizedImages
+
+def otsu_thresholding(images):
+    # Apply the image Thresholding procedure (Otsu threshold)
+    ThresholdedImages = [cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1] for img in images]
+    return ThresholdedImages
+
+def create_structuring_element(radius):
+    # Construct a Structuring Element (SE) with disk radius = 1
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+
+def dilate_image(images, structuring_element):
+    # Dilate image using D = Y * SE
+    DilatedImages = [cv2.dilate(img, structuring_element) for img in images]
+    return DilatedImages
+
+def fill_holes(images, threshold):
+    # Fill the holes in D, where t = predefined threshold
+    FilledImages = [cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY)[1] for img in images]
+    return FilledImages
+
+def remove_small_components(images, threshold):
+    # Remove all connected components less than t
+    ProcessedImages = [cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY)[1] for img in images]
+    return ProcessedImages
+
+def normalize_images(images):
+    # Normalize all isolated images
+    NormalizedDataset = [img / 255.0 for img in images]
+    return NormalizedDataset
+
+def main(gait_dataset_path, background_images_path):
+    # Step 1: Read RGB gait dataset and background images
+    RGBGaitImages, BackgroundImages = read_images(gait_dataset_path, background_images_path)
+    # Step 2: Resize all images to three different sizes (150, 100, and 50)
+    ResizedImages = resize_images(RGBGaitImages, [150, 100, 50])
+    # Step 3: Apply Rgb2gray image conversion
+    GrayScaleImages = convert_to_grayscale(ResizedImages)
+    # Step 4: Apply subtraction between grayscale gait (G) and background (BG)
+    SubtractedImages = subtract_background(GrayScaleImages, [BackgroundImages]*len(GrayScaleImages))
+    # Step 5: Isolated image (I) = Gait image (G) – Background image (BG)
+    IsolatedImages = SubtractedImages
+    # Step 6: Apply histogram equalization
+    EqualizedImages = histogram_equalization(IsolatedImages)
+    # Step 7: Apply the image Thresholding procedure (Otsu threshold)
+    ThresholdedImages = otsu_thresholding(EqualizedImages)
+    # Step 8: Construct a Structuring Element (SE) with disk radius = 1
+    StructuringElement = create_structuring_element(radius=1)
+    # Step 9: Dilate image using D = Y * SE
+    DilatedImages = dilate_image(ThresholdedImages, StructuringElement)
+    # Step 10: Fill the holes in D, where t = predefined threshold
+    FilledImages = fill_holes(DilatedImages, threshold=128)
+    # Step 11: Remove all connected components less than t
+    ProcessedImages = remove_small_components(FilledImages, threshold=128)
+    # Step 12: Get the Isolated Gait dataset (ROI)
+    IsolatedGaitDataset = ProcessedImages
+    # Step 13: Normalize all isolated images
+    NormalizedDataset = normalize_images(IsolatedGaitDataset)
+    # Step 14: Output the final normalized isolated gait dataset
+    return NormalizedDataset
+
+# Example usage:
+gait_dataset_path = "path/to/gait_dataset"
+background_images_path = "path/to/background_images"
+binary_isolated_gait_dataset = main(gait_dataset_path, background_images_path)
